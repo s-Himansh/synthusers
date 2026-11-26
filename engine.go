@@ -218,6 +218,8 @@ type Engine struct {
 	inFlight map[string]bool
 	jobs     chan job
 	started  bool
+
+	live liveHub // in-memory fan-out of what runs are doing right now
 }
 
 type job struct {
@@ -465,6 +467,8 @@ func (e *Engine) runTarget(ctx context.Context, t *Target, workerName string, fo
 	started := e.cfg.Now()
 	persona := e.personas.pick(t)
 	fetcher := e.fetcherFor(t, persona)
+	fetcher.runID = e.live.newRunID(t.ID)
+	e.live.emit(LiveEvent{Kind: LiveRunStart, RunID: fetcher.runID, TargetID: t.ID, Persona: persona.Name, Mode: mode, URL: t.StartURL})
 
 	req := &RunRequest{
 		Target:    t,
@@ -505,7 +509,7 @@ func (e *Engine) runTarget(ctx context.Context, t *Target, workerName string, fo
 	}
 
 	// Sample a few of the visited pages in a real browser for JS errors.
-	newIssues := e.pipeline(ctx, t, findings)
+	newIssues := e.pipeline(ctx, t, fetcher.runID, findings)
 	if e.jsRunner != nil && e.jsRunner.Healthy() && t.JS.Sample > 0 {
 		for _, u := range sampleURLs(summary.Visited, t.JS.Sample) {
 			jsFindings, err := e.jsRunner.CheckURL(ctx, t, u, persona)
@@ -513,7 +517,7 @@ func (e *Engine) runTarget(ctx context.Context, t *Target, workerName string, fo
 				e.logger.Warn("js check failed", "url", u, "err", err)
 				continue
 			}
-			newIssues += e.pipeline(ctx, t, jsFindings)
+			newIssues += e.pipeline(ctx, t, fetcher.runID, jsFindings)
 		}
 	}
 
@@ -532,12 +536,14 @@ func (e *Engine) runTarget(ctx context.Context, t *Target, workerName string, fo
 	if firstErr != nil {
 		run.Error = firstErr.Error()
 	}
+	ended := run
+	e.live.emit(LiveEvent{Kind: LiveRunEnd, RunID: fetcher.runID, TargetID: t.ID, Persona: persona.Name, Run: &ended})
 	return run
 }
 
 // pipeline persists findings and resolves scopes that passed. Returns the
 // number of newly created issues.
-func (e *Engine) pipeline(ctx context.Context, t *Target, findings []Finding) int {
+func (e *Engine) pipeline(ctx context.Context, t *Target, runID string, findings []Finding) int {
 	var toResolve []string
 	newIssues := 0
 	for _, f := range findings {
@@ -555,6 +561,8 @@ func (e *Engine) pipeline(ctx context.Context, t *Target, findings []Finding) in
 		}
 		if isNew {
 			newIssues++
+			e.live.emit(LiveEvent{Kind: LiveIssue, RunID: runID, TargetID: t.ID, URL: f.URL,
+				Severity: f.Severity, IssueType: f.Type, Summary: f.Summary})
 			e.logger.Info("new issue",
 				"target", t.ID, "type", f.Type, "severity", f.Severity,
 				"url", f.URL, "summary", f.Summary)
@@ -623,6 +631,7 @@ type runFetcher struct {
 	client     *http.Client
 	requests   atomic.Int64 // every outbound request, pages and probes alike
 	probeCache *ProbeCache  // per-run subresource probe results
+	runID      string       // live-event run id; "" outside engine runs
 }
 
 // RequestCount reports how many HTTP requests this run's fetcher made.
@@ -650,10 +659,14 @@ func (rf *runFetcher) init() {
 	})
 }
 
-func (rf *runFetcher) do(ctx context.Context, rawURL string, maxBytes int64) (*FetchedPage, error) {
+func (rf *runFetcher) do(ctx context.Context, kind, rawURL string, maxBytes int64) (*FetchedPage, error) {
 	rf.init()
 	rf.requests.Add(1)
-	return rf.engine.doFetch(ctx, rf.client, rf.target, rf.persona, http.MethodGet, rawURL, nil, "", maxBytes)
+	page, err := rf.engine.doFetch(ctx, rf.client, rf.target, rf.persona, http.MethodGet, rawURL, nil, "", maxBytes)
+	if err == nil {
+		rf.emitFetch(kind, http.MethodGet, rawURL, page)
+	}
+	return page, err
 }
 
 // SubmitForm implements PageFetcher.SubmitForm.
@@ -677,20 +690,30 @@ func (rf *runFetcher) SubmitForm(ctx context.Context, action, method string, val
 			}
 		}
 		u.RawQuery = q.Encode()
-		return rf.engine.doFetch(ctx, rf.client, rf.target, rf.persona, http.MethodGet, u.String(), nil, "", rf.engine.cfg.MaxBodyBytes)
+		return rf.formDone(method, action)(rf.engine.doFetch(ctx, rf.client, rf.target, rf.persona, http.MethodGet, u.String(), nil, "", rf.engine.cfg.MaxBodyBytes))
 	default:
 		body := strings.NewReader(values.Encode())
-		return rf.engine.doFetch(ctx, rf.client, rf.target, rf.persona, method, action, body, "application/x-www-form-urlencoded", rf.engine.cfg.MaxBodyBytes)
+		return rf.formDone(method, action)(rf.engine.doFetch(ctx, rf.client, rf.target, rf.persona, method, action, body, "application/x-www-form-urlencoded", rf.engine.cfg.MaxBodyBytes))
+	}
+}
+
+// formDone reports a finished form submission as a live event.
+func (rf *runFetcher) formDone(method, action string) func(*FetchedPage, error) (*FetchedPage, error) {
+	return func(page *FetchedPage, err error) (*FetchedPage, error) {
+		if err == nil {
+			rf.emitFetch(LiveForm, method, action, page)
+		}
+		return page, err
 	}
 }
 
 func (rf *runFetcher) FetchPage(ctx context.Context, rawURL string) (*FetchedPage, error) {
-	return rf.do(ctx, rawURL, rf.engine.cfg.MaxBodyBytes)
+	return rf.do(ctx, LivePage, rawURL, rf.engine.cfg.MaxBodyBytes)
 }
 
 func (rf *runFetcher) Fetch(ctx context.Context, rawURL string) (*FetchedPage, error) {
 	const probeBytes = 512 << 10
-	return rf.do(ctx, rawURL, probeBytes)
+	return rf.do(ctx, LiveProbe, rawURL, probeBytes)
 }
 
 // fetch executes one GET with timing, redirect tracking and body limits.

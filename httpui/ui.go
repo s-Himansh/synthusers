@@ -127,6 +127,53 @@ func Handler(e *synthusers.Engine) http.Handler {
 		writeJSON(w, runs, err)
 	})
 
+	// Server-Sent Events stream of what the synthetic users are doing now:
+	// the recent backlog first, then every new event as it happens.
+	mux.HandleFunc("GET /api/live", func(w http.ResponseWriter, r *http.Request) {
+		rc := http.NewResponseController(w)
+		_ = rc.SetWriteDeadline(time.Time{}) // long-lived stream: no write timeout
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Accel-Buffering", "no")
+
+		backlog, events, cancel := e.SubscribeLive()
+		defer cancel()
+		send := func(ev synthusers.LiveEvent) error {
+			b, err := json.Marshal(ev)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "id: %d\ndata: %s\n\n", ev.Seq, b); err != nil {
+				return err
+			}
+			return rc.Flush()
+		}
+		for _, ev := range backlog {
+			if send(ev) != nil {
+				return
+			}
+		}
+		if rc.Flush() != nil {
+			return
+		}
+		ping := time.NewTicker(15 * time.Second) // keeps proxies from closing an idle stream
+		defer ping.Stop()
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case ev := <-events:
+				if send(ev) != nil {
+					return
+				}
+			case <-ping.C:
+				if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil || rc.Flush() != nil {
+					return
+				}
+			}
+		}
+	})
+
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]string{"status": "ok"}, nil)
 	})

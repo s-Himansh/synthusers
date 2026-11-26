@@ -1,6 +1,7 @@
 package httpui
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -182,5 +183,45 @@ func TestDashboardEndpoints(t *testing.T) {
 	resp, _ = get(t, h, "/api/nope")
 	if resp.StatusCode != 404 {
 		t.Fatalf("unknown api route must 404, got %d", resp.StatusCode)
+	}
+}
+
+func TestLiveStream(t *testing.T) {
+	eng := testEngine(t)
+	srv := httptest.NewServer(Handler(eng))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/api/live", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
+		t.Fatalf("content-type %q", ct)
+	}
+	// Run after connecting: the events must arrive over the open stream.
+	go eng.RunOnce(context.Background(), "shop")
+
+	sc := bufio.NewScanner(resp.Body)
+	var kinds []string
+	for sc.Scan() {
+		line, ok := strings.CutPrefix(sc.Text(), "data: ")
+		if !ok {
+			continue
+		}
+		var ev synthusers.LiveEvent
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatalf("bad event %q: %v", line, err)
+		}
+		kinds = append(kinds, ev.Kind)
+		if ev.Kind == synthusers.LiveRunEnd {
+			break
+		}
+	}
+	if len(kinds) < 2 || kinds[0] != synthusers.LiveRunStart || kinds[len(kinds)-1] != synthusers.LiveRunEnd {
+		t.Fatalf("stream kinds = %v (scan err %v)", kinds, sc.Err())
 	}
 }

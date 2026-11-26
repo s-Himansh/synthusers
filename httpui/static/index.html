@@ -76,6 +76,62 @@
     border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: .8rem; max-width: 640px;
   }
   .resolveall { margin-left: auto; }
+  /* ---- live ---- */
+  .live-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 18px 0 12px; }
+  .live-badge { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; letter-spacing: .12em;
+    font-size: .78rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .live-badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .live-badge.on { color: var(--ok); border-color: rgba(52,211,153,.4); }
+  .live-badge.on i { background: var(--ok); animation: pulse 1.4s ease-in-out infinite; }
+  .live-badge.off { color: var(--critical); }
+  .live-badge.off i { background: var(--critical); }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,.6); } 50% { box-shadow: 0 0 0 6px rgba(52,211,153,0); } }
+  .live-summary { color: var(--muted); }
+  .live-summary b { color: var(--text); font-weight: 600; }
+  .live-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); }
+  .live-idle { border: 1px dashed var(--line); border-radius: 12px; padding: 18px; color: var(--muted); }
+  .live-idle ul { margin: 8px 0 0; padding-left: 18px; }
+  .live-idle li b { color: var(--text); font-weight: 600; }
+  .run-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px; min-width: 0; transition: opacity .6s; }
+  .run-card.running { border-color: rgba(91,140,255,.55); box-shadow: 0 0 0 1px rgba(91,140,255,.15) inset; }
+  .run-card.done { opacity: .72; }
+  .run-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--panel2); border: 1px solid var(--line); font-size: .95rem; }
+  .run-who { min-width: 0; flex: 1; }
+  .run-who .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .run-who .p { color: var(--muted); font-size: .82rem; }
+  .run-clock { font-variant-numeric: tabular-nums; color: var(--muted); font-size: .85rem; white-space: nowrap; }
+  .run-now { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    font-size: .9rem; display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+  .run-now .lbl { color: var(--accent); font-weight: 700; font-size: .72rem; letter-spacing: .08em; flex: none; }
+  .run-now .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .run-card.done .run-now .lbl { color: var(--ok); }
+  .run-card.done .run-now .txt { white-space: normal; }
+  .trail { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: .8rem; }
+  .trail .step { padding: 2px 8px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trail .step.bad { border-color: rgba(239,68,68,.5); color: var(--critical); }
+  .trail .step.cur { border-color: var(--accent); color: var(--text); }
+  .trail .arrow { color: var(--muted); }
+  .run-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .8rem; color: var(--muted); }
+  .run-stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .run-stats .bad b { color: var(--critical); }
+  .reqlog { list-style: none; margin: 0; padding: 0; font: .78rem/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+    max-height: 214px; overflow-y: auto; border-top: 1px solid var(--line); padding-top: 6px; }
+  .reqlog li { display: grid; grid-template-columns: 44px 34px 52px 1fr; gap: 6px; padding: 2px 0; align-items: baseline; }
+  .reqlog li.fresh { animation: flash 1.2s ease-out; }
+  @keyframes flash { from { background: rgba(91,140,255,.18); } to { background: transparent; } }
+  .reqlog .k { color: var(--muted); text-transform: uppercase; font-size: .68rem; letter-spacing: .04em; }
+  .reqlog .s { font-weight: 700; color: var(--ok); }
+  .reqlog .s.w { color: var(--warning); }
+  .reqlog .s.c { color: var(--critical); }
+  .reqlog .ms { color: var(--muted); text-align: right; }
+  .reqlog .u { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .reqlog li.issue { grid-template-columns: 1fr; color: var(--warning); }
+  .reqlog li.issue.critical { color: var(--critical); }
+  @media (prefers-reduced-motion: reduce) { .live-badge.on i, .reqlog li.fresh { animation: none; } }
   footer { color: var(--muted); font-size: .8rem; padding: 0 clamp(16px,4vw,40px) 30px; }
   @media (max-width: 640px) {
     th, td { padding: 7px 8px; font-size: .88rem; }
@@ -89,6 +145,15 @@
   <div class="sub"><span id="dot"></span><span id="api-state">connected</span> &middot; synthetic users browsing your sites and reporting problems</div>
 </header>
 <div class="wrap">
+  <section id="live-section" aria-labelledby="live-title">
+    <div class="live-head">
+      <h2 id="live-title" style="margin:0">Live</h2>
+      <span class="live-badge" id="live-badge"><i></i><span id="live-badge-txt">CONNECTING</span></span>
+      <span class="live-summary" id="live-summary" aria-live="polite"></span>
+    </div>
+    <div class="live-grid" id="live-grid"></div>
+  </section>
+
   <div class="cards" id="cards"></div>
 
   <section id="issues-section">
@@ -378,8 +443,212 @@ $("resolve-shown").addEventListener("click", async () => {
   refresh();
 });
 
-refresh();
+// ---- live view -----------------------------------------------------------
+// Events arrive over /api/live (Server-Sent Events) as each request finishes.
+const live = { runs: new Map(), lastSeq: 0, connected: false };
+const KEEP_DONE_MS = 60000;   // finished runs stay visible this long
+const LOG_ROWS = 40;
+
+function personaIcon(p = "") {
+  if (p.includes("iphone") || p.includes("android")) return "📱";
+  if (p.includes("safari") || p.includes("mac")) return "🧭";
+  if (p.includes("firefox")) return "🦊";
+  return "🌐";
+}
+function shortURL(u, base) {
+  try {
+    const x = new URL(u), b = base ? new URL(base) : null;
+    const path = (x.pathname + x.search) || "/";
+    return b && x.host === b.host ? path : x.host + (path === "/" ? "" : path);
+  } catch { return u; }
+}
+function statusClass(ev) {
+  if (ev.error || !ev.status || ev.status >= 500) return "c";
+  return ev.status >= 400 ? "w" : "";
+}
+function clock(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function onLive(ev) {
+  if (ev.seq <= live.lastSeq) return;   // replayed on reconnect
+  live.lastSeq = ev.seq;
+  let r = live.runs.get(ev.run_id);
+  if (!r) {
+    if (ev.kind !== "run_start") return; // run began before our backlog window
+    r = { id: ev.run_id, target: ev.target_id, persona: ev.persona, mode: ev.mode, start: ev.url,
+          started: Date.parse(ev.time), last: null, ended: 0, trail: [], log: [],
+          pages: 0, reqs: 0, bad: 0, issues: 0, run: null, card: null };
+    live.runs.set(ev.run_id, r);
+  }
+  r.lastAt = Date.parse(ev.time);
+  if (ev.kind === "page" || ev.kind === "form") {
+    r.pages++; r.reqs++;
+    r.trail.push({ url: ev.url, bad: !!statusClass(ev), form: ev.kind === "form" });
+    r.probesSincePage = 0;
+  } else if (ev.kind === "probe") {
+    r.reqs++; r.probesSincePage = (r.probesSincePage || 0) + 1;
+  } else if (ev.kind === "issue") {
+    r.issues++;
+  } else if (ev.kind === "run_end") {
+    r.ended = Date.parse(ev.time); r.run = ev.run;
+    if (ev.run) { r.pages = ev.run.pages; r.reqs = ev.run.requests; } // engine totals are authoritative (PDFs etc. are not pages)
+  }
+  if ((ev.kind === "page" || ev.kind === "probe" || ev.kind === "form") && statusClass(ev)) r.bad++;
+  if (ev.kind !== "run_start" && ev.kind !== "run_end") {
+    r.log.unshift(ev); if (r.log.length > LOG_ROWS) r.log.pop();
+  }
+  r.last = ev;
+  r.dirty = true;
+  if (ev.kind === "run_end" || ev.kind === "issue" || ev.kind === "run_start") scheduleRefresh();
+}
+
+let refreshTimer = 0;
+function scheduleRefresh() { clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, 400); }
+
+function nowLine(r) {
+  const ev = r.last, now = Date.now();
+  if (r.ended) {
+    const n = r.run ? r.run.new_issues : r.issues;
+    return `Finished in ${clock(r.ended - r.started)} — ${r.pages} page${r.pages === 1 ? "" : "s"}, ${r.reqs} requests, ${n} new issue${n === 1 ? "" : "s"}`;
+  }
+  if (!ev || ev.kind === "run_start") return `Arriving at ${shortURL(r.start)}…`;
+  const idle = Math.floor((now - r.lastAt) / 1000);
+  const page = r.trail.length ? shortURL(r.trail[r.trail.length - 1].url, r.start) : "";
+  if (ev.kind === "page") return `Landed on ${page} (${ev.status || "error"}) — looking around…`;
+  if (ev.kind === "form") return `Submitted a form → ${ev.status || "error"}`;
+  if (ev.kind === "probe") {
+    return idle >= 2 ? `Reading ${page || "the page"}… ${idle}s` : `Checking links & assets on ${page} · ${r.probesSincePage} checked`;
+  }
+  if (ev.kind === "issue") return `Found a problem: ${ev.summary}`;
+  return "";
+}
+
+function buildCard(r) {
+  const c = el("article", "run-card");
+  c.innerHTML = `<div class="run-top"><div class="avatar" aria-hidden="true"></div>
+      <div class="run-who"><div class="t"></div><div class="p"></div></div><div class="run-clock"></div></div>
+    <div class="run-now"><span class="lbl"></span><span class="txt"></span></div>
+    <div class="trail" aria-label="Pages visited"></div>
+    <div class="run-stats"></div>
+    <ul class="reqlog" aria-label="Requests"></ul>`;
+  c.querySelector(".avatar").textContent = personaIcon(r.persona);
+  c.querySelector(".t").textContent = r.target;
+  c.querySelector(".p").textContent = `${r.persona} · ${r.mode}`;
+  c.querySelector(".run-who").title = r.start;
+  return c;
+}
+
+function paintCard(r) {
+  const c = r.card || (r.card = buildCard(r));
+  c.className = "run-card " + (r.ended ? "done" : "running");
+  const now = Date.now();
+  c.querySelector(".run-clock").textContent = r.ended ? `done ${ago(new Date(r.ended).toISOString())}` : clock(now - r.started);
+  c.querySelector(".run-now .lbl").textContent = r.ended ? "DONE" : "NOW";
+  const txt = nowLine(r); const t = c.querySelector(".run-now .txt"); t.textContent = txt; t.title = txt;
+  if (!r.dirty) return;
+  r.dirty = false;
+
+  const trail = c.querySelector(".trail");
+  const steps = r.trail.slice(-8);
+  const nodes = [];
+  if (r.trail.length > steps.length) nodes.push(el("span", "arrow", `+${r.trail.length - steps.length} …`));
+  steps.forEach((s, i) => {
+    if (nodes.length) nodes.push(el("span", "arrow", "→"));
+    const isCur = !r.ended && i === steps.length - 1;
+    const n = el("span", "step" + (s.bad ? " bad" : "") + (isCur ? " cur" : ""), (s.form ? "✎ " : "") + shortURL(s.url, r.start));
+    n.title = s.url; nodes.push(n);
+  });
+  if (!nodes.length) nodes.push(el("span", "muted", "no pages yet"));
+  trail.replaceChildren(...nodes);
+
+  const st = c.querySelector(".run-stats");
+  const stat = (label, n, cls) => { const s = el("span", cls || ""); s.append(el("b", "", String(n)), " " + label); return s; };
+  st.replaceChildren(stat("pages", r.pages), stat("requests", r.reqs), stat("failed", r.bad, r.bad ? "bad" : ""), stat("new issues", r.issues, r.issues ? "bad" : ""));
+
+  const log = c.querySelector(".reqlog");
+  const firstSeq = log.firstChild ? +log.firstChild.dataset.seq : 0;
+  log.replaceChildren(...r.log.map(ev => {
+    const li = el("li", ev.seq > firstSeq && firstSeq ? "fresh" : "");
+    li.dataset.seq = ev.seq;
+    if (ev.kind === "issue") {
+      li.className += " issue " + (ev.severity || "");
+      li.textContent = `⚑ ${ev.issue_type}: ${ev.summary}`;
+      return li;
+    }
+    const kind = ev.kind === "probe" ? "check" : ev.kind;
+    li.append(el("span", "k", kind), el("span", "s " + statusClass(ev), ev.error ? "ERR" : String(ev.status)),
+              el("span", "ms", ev.latency_ms ? dur(ev.latency_ms) : ""), el("span", "u", shortURL(ev.url, r.start)));
+    li.title = (ev.method || "GET") + " " + ev.url + (ev.error ? "\n" + ev.error : "");
+    return li;
+  }));
+}
+
+function parseGoDur(s) {
+  if (!s) return 0;
+  let ms = 0; const re = /([\d.]+)(h|ms|m|s)/g; let m;
+  while ((m = re.exec(s))) ms += +m[1] * { h: 3600e3, m: 60e3, s: 1e3, ms: 1 }[m[2]];
+  return ms;
+}
+
+function idleView() {
+  const box = el("div", "live-idle");
+  const targets = (state.targets || []).filter(t => t.enabled !== false);
+  if (!targets.length) { box.textContent = "No sites attached yet — add one under Targets and the synthetic users will start visiting."; return box; }
+  box.append("Nobody is browsing right now. Upcoming visits:");
+  const ul = el("ul");
+  for (const t of targets) {
+    const lastRun = (state.runs || []).find(r => r.target_id === t.id);
+    const every = parseGoDur(t.interval);
+    const li = el("li"); li.append(el("b", "", t.name || t.id), " — ");
+    if (lastRun && every) {
+      const next = Date.parse(lastRun.started_at) + every - Date.now();
+      li.append(next > 0 ? `in ~${clock(next)} (every ${t.interval.replace(/0s$/, "").replace(/m0$/, "m")})` : "any moment now");
+    } else {
+      li.append(lastRun ? "on its schedule" : "first visit is scheduled (or press Run now)");
+    }
+    ul.append(li);
+  }
+  box.append(ul);
+  return box;
+}
+
+function paintLive() {
+  const now = Date.now();
+  for (const [id, r] of live.runs) if (r.ended && now - r.ended > KEEP_DONE_MS) live.runs.delete(id);
+  const runs = [...live.runs.values()].sort((a, b) => (!!a.ended - !!b.ended) || b.started - a.started);
+  const active = runs.filter(r => !r.ended).length;
+
+  const badge = $("live-badge");
+  badge.className = "live-badge " + (live.connected ? (active ? "on" : "") : "off");
+  $("live-badge-txt").textContent = live.connected ? (active ? "LIVE" : "IDLE") : "RECONNECTING";
+  const sum = $("live-summary");
+  sum.replaceChildren();
+  if (active) { sum.append(el("b", "", String(active)), ` synthetic user${active === 1 ? " is" : "s are"} browsing right now`); }
+  else if (live.connected) sum.textContent = "waiting for the next scheduled visit";
+
+  runs.forEach(paintCard);
+  const grid = $("live-grid");
+  const want = runs.length ? runs.map(r => r.card) : [idleView()];
+  if (want.length !== grid.children.length || want.some((n, i) => grid.children[i] !== n)) grid.replaceChildren(...want);
+}
+
+function connectLive() {
+  if (!window.EventSource) { $("live-badge-txt").textContent = "UNSUPPORTED"; return; }
+  const es = new EventSource("/api/live");
+  es.onopen = () => {
+    // A (re)connect replays the server's backlog; rebuild from it.
+    live.connected = true; live.lastSeq = 0; live.runs.clear(); $("live-grid").replaceChildren(); paintLive();
+  };
+  es.onmessage = (m) => { try { onLive(JSON.parse(m.data)); } catch (e) { console.error(e); } };
+  es.onerror = () => { live.connected = false; paintLive(); };   // EventSource retries by itself
+}
+
+refresh().then(paintLive);
+connectLive();
 setInterval(() => { if (!document.hidden) refresh(); }, 5000);
+setInterval(() => { if (!document.hidden) paintLive(); }, 1000);
 </script>
 </body>
 </html>
