@@ -2,7 +2,7 @@
 #
 # Quick start against the bundled demo site:
 #   go run ./examples/brokensite -http :6060 -https :6161 &
-#   SYNTHUSERS_DSN="" go run ./cmd/synthusersd -config config.example.yaml
+#   SYNTHUSERS_DSN="" go run ./cmd/synthusersd -config configs/example.yaml
 # then open http://localhost:8080
 
 server:

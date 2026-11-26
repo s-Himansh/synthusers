@@ -1,4 +1,4 @@
-# Dashboard config for docker compose (see docker-compose.yml).
+# Dashboard config for docker compose (see deploy/docker-compose.yml).
 # Store DSN comes from the SYNTHUSERS_DSN environment variable.
 
 server:

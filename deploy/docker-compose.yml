@@ -1,20 +1,22 @@
 # Full stack: dashboard + Postgres store + headless Chrome for JS checks.
-#   docker compose up -d
+#   make up        (or: docker compose -f deploy/docker-compose.yml up -d)
 #   open http://localhost:8080
 #
 # The bundled demo site (examples/brokensite) runs too, so the dashboard
 # lights up with issues immediately. Remove the brokensite service and the
-# demo target in config.docker.yaml for real use.
+# demo target in configs/docker.yaml for real use.
 services:
   synthusersd:
-    build: .
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
     restart: unless-stopped
     environment:
       SYNTHUSERS_DSN: postgres://synthusers:synthusers@postgres:5432/synthusers?sslmode=disable
     ports:
       - "8080:8080"
     volumes:
-      - ./config.docker.yaml:/etc/synthusers/config.yaml:ro
+      - ../configs/docker.yaml:/etc/synthusers/config.yaml:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,8 +55,8 @@ services:
   # Remove in production.
   brokensite:
     build:
-      context: .
-      dockerfile: Dockerfile.brokensite
+      context: ..
+      dockerfile: deploy/brokensite.Dockerfile
     restart: unless-stopped
     ports:
       - "6060:6060"

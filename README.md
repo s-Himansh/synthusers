@@ -53,8 +53,9 @@ linked from 40 pages is **one** issue with a growing occurrence count.
 ## Repository layout
 
 ```
-synthusers/            core library: types, Engine, scheduler, personas,
-                       per-domain rate limiting, Store interface, memory store
+*.go (root)            core library (import "synthusers"): types, Engine,
+                       scheduler, personas, rate limiting, live events,
+                       Store interface, memory store
 checkers/              http / assets / content detectors
 explorer/              free-roaming human-like crawler
 journey/               scripted flow player + small CSS selector engine
@@ -64,6 +65,9 @@ httpui/                dashboard: JSON API + embedded single-page UI
 cmd/synthusersd/       the daemon (YAML config, one binary)
 cmd/brokensite/        runs the demo site
 examples/brokensite/   the deliberately broken demo site (importable package)
+configs/               example.yaml (every key documented), docker.yaml,
+                       local.yaml (yours, git-ignored)
+deploy/                Dockerfiles + docker-compose.yml (full stack)
 ```
 
 ## Quick start (60 seconds, no dependencies)
@@ -71,7 +75,7 @@ examples/brokensite/   the deliberately broken demo site (importable package)
 ```bash
 make build
 ./bin/brokensite -http :6060 -https :6161 &   # deliberately broken demo shop
-./bin/synthusersd -config config.example.yaml &  # in-memory store, port 8080
+./bin/synthusersd -config configs/example.yaml &  # in-memory store, port 8080
 open http://localhost:8080
 ```
 
@@ -80,20 +84,25 @@ scripts (incl. one referenced from CSS), dead links, an HTTP 500, a soft
 404, mixed content on the HTTPS site, a slow endpoint, a 10-day TLS
 certificate, and a failing login journey.
 
-Run the same thing against your own site: edit `targets:` in
-`config.example.yaml` (or POST to `/api/targets` at runtime).
+Run it against your own site: `cp configs/example.yaml configs/local.yaml`,
+edit `targets:`, then `make run` (or POST to `/api/targets` at runtime).
 
 ## The dashboard
 
+- **Live**: one card per synthetic user browsing right now — persona, timer,
+  what it is doing ("reading /pricing… 4s", "checking links · 12 checked"),
+  the trail of pages it clicked through, and every request as it completes,
+  with new issues flagged the moment they are found. When idle it counts
+  down to each site's next visit. Streamed over Server-Sent Events.
 - **Stats cards**: open issues by severity, targets, runs and pages in 24h.
 - **Issues**: filter by status / severity / type / target, expand evidence
   details, resolve manually (they also auto-resolve).
 - **Targets**: attach a site at runtime, "Run now", remove.
 - **Runs**: what the users did recently (pages, requests, new issues, persona).
 - JSON API under `/api/*` (`/api/stats`, `/api/issues`, `/api/targets`,
-  `/api/runs`, `/healthz`) — everything the UI does is available to scripts.
+  `/api/runs`, `/api/live` (SSE), `/healthz`) — everything the UI does is available to scripts.
 
-## Configuration (`config.example.yaml` documents every key)
+## Configuration (`configs/example.yaml` documents every key)
 
 ```yaml
 server:      { addr: :8080 }
@@ -164,13 +173,14 @@ The core package depends only on the standard library plus
 ### Docker Compose (full stack)
 
 ```bash
-docker compose up -d          # synthusersd + postgres + headless chrome + demo site
+make up                       # synthusersd + postgres + headless chrome + demo site
 open http://localhost:8080
 ```
 
-`config.docker.yaml` wires the daemon to the Postgres sidecar and the
+`configs/docker.yaml` wires the daemon to the Postgres sidecar and the
 `chromedp/headless-shell` sidecar that provides real-browser JS checks.
-Remove the `brokensite` service and the demo target for production.
+Remove the `brokensite` service (`deploy/docker-compose.yml`) and the demo
+target for production. `make down` stops the stack.
 
 ### Binary
 
@@ -218,7 +228,8 @@ automatically because all instances share one store.
 ```bash
 make test   # unit + integration + full-stack E2E + real-Postgres store test
 make vet
-make run-demo
+make run-demo   # demo site + daemon
+make run        # daemon on configs/local.yaml
 ```
 
 The test suite boots a real PostgreSQL 17 (embedded binaries, no Docker

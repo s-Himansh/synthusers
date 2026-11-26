@@ -2,3 +2,4 @@ skills/
 node_modules/
 bin/
 .DS_Store
+configs/local.yaml
