@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synth Users — synthetic monitoring</title>
+<style>
+  :root {
+    --bg: #0b1020; --panel: #121a2e; --panel2: #0e1526; --line: #1f2b47;
+    --text: #e6ecff; --muted: #8fa0c4; --accent: #5b8cff;
+    --critical: #ef4444; --warning: #f59e0b; --info: #38bdf8; --ok: #34d399;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; word-break: break-all; }
+  a:hover { text-decoration: underline; }
+  header {
+    padding: clamp(16px, 3vw, 28px) clamp(16px, 4vw, 40px) 0;
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline;
+  }
+  header h1 {
+    margin: 0; font-size: clamp(1.4rem, 4vw, 2rem); letter-spacing: .5px;
+  }
+  header .sub { color: var(--muted); font-size: .9rem; }
+  #dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 6px; }
+  #dot.down { background: var(--critical); }
+  .wrap { padding: 0 clamp(16px, 4vw, 40px) 40px; }
+  .cards {
+    display: grid; gap: 12px; margin: 18px 0 26px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .card .num { font-size: clamp(1.5rem, 3.5vw, 2.2rem); font-weight: 700; }
+  .card .lbl { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+  .card.crit .num { color: var(--critical); }
+  .card.warn .num { color: var(--warning); }
+  section { margin: 26px 0; }
+  h2 { font-size: 1.1rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  h2 .count { color: var(--muted); font-weight: 400; font-size: .85rem; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  select, input, button {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font: inherit;
+  }
+  button { cursor: pointer; }
+  button:hover, select:hover, input:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.danger { color: var(--critical); }
+  button.small { padding: 4px 9px; font-size: .82rem; border-radius: 6px; }
+  .tblbox { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--panel2); }
+  .chip {
+    display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .75rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .chip.critical { background: rgba(239,68,68,.15); color: var(--critical); }
+  .chip.warning  { background: rgba(245,158,11,.15); color: var(--warning); }
+  .chip.info     { background: rgba(56,189,248,.15); color: var(--info); }
+  .chip.ok       { background: rgba(52,211,153,.15); color: var(--ok); }
+  .chip.type     { background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
+  .muted { color: var(--muted); }
+  .empty { padding: 26px; text-align: center; color: var(--muted); }
+  form.addform { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+  form.addform input { flex: 1 1 180px; }
+  details.detail { margin-top: 4px; }
+  details.detail pre {
+    white-space: pre-wrap; word-break: break-word; background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: .8rem; max-width: 640px;
+  }
+  .resolveall { margin-left: auto; }
+  footer { color: var(--muted); font-size: .8rem; padding: 0 clamp(16px,4vw,40px) 30px; }
+  @media (max-width: 640px) {
+    th, td { padding: 7px 8px; font-size: .88rem; }
+    .toolbar select { flex: 1 1 40%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Synth Users</h1>
+  <div class="sub"><span id="dot"></span><span id="api-state">connected</span> &middot; synthetic users browsing your sites and reporting problems</div>
+</header>
+<div class="wrap">
+  <div class="cards" id="cards"></div>
+
+  <section id="issues-section">
+    <h2>Issues <span class="count" id="issues-count"></span>
+      <button class="small resolveall" id="resolve-shown" title="Resolve every issue currently listed">Resolve listed</button>
+    </h2>
+    <div class="toolbar">
+      <select id="f-status">
+        <option value="open">Open</option>
+        <option value="">All</option>
+        <option value="resolved">Resolved</option>
+      </select>
+      <select id="f-severity">
+        <option value="">All severities</option>
+        <option value="critical">Critical</option>
+        <option value="warning">Warning</option>
+        <option value="info">Info</option>
+      </select>
+      <select id="f-type"><option value="">All types</option></select>
+      <select id="f-target"><option value="">All targets</option></select>
+    </div>
+    <div class="tblbox"><table id="issues-table">
+      <thead><tr><th>Severity</th><th>Type</th><th>Target</th><th>Summary</th><th>Seen</th><th>&times;</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section id="targets-section">
+    <h2>Targets <span class="count" id="targets-count"></span></h2>
+    <form class="addform" id="add-form">
+      <input id="t-url" type="url" placeholder="https://example.com — site to attach" required>
+      <input id="t-name" type="text" placeholder="Name (optional)">
+      <select id="t-mode">
+        <option value="both">Explorer + journeys</option>
+        <option value="explorer">Explorer only</option>
+        <option value="journey">Journeys only</option>
+      </select>
+      <select id="t-interval">
+        <option value="">Default interval</option>
+        <option value="1m">Every 1m</option>
+        <option value="5m">Every 5m</option>
+        <option value="10m">Every 10m</option>
+        <option value="30m">Every 30m</option>
+        <option value="1h">Every 1h</option>
+      </select>
+      <button class="primary" type="submit">Attach site</button>
+    </form>
+    <div class="tblbox"><table id="targets-table">
+      <thead><tr><th>ID</th><th>Name</th><th>URL</th><th>Mode</th><th>Interval</th><th>Personas</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section id="runs-section">
+    <h2>Recent runs <span class="count" id="runs-count"></span></h2>
+    <div class="tblbox"><table id="runs-table">
+      <thead><tr><th>Started</th><th>Target</th><th>Mode</th><th>Persona</th><th>Pages</th><th>Requests</th><th>New issues</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+</div>
+<footer>Synthetic users visit on a schedule; issues dedupe by fingerprint and auto-resolve when the check passes again. Data: <a href="/api/stats">/api/stats</a> &middot; <a href="/api/issues">/api/issues</a> &middot; <a href="/api/targets">/api/targets</a> &middot; <a href="/api/runs">/api/runs</a></footer>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const state = { stats: null, targets: [], issues: [], runs: [] };
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function ago(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso), s = (Date.now() - d.getTime()) / 1000;
+  const abs = d.toLocaleString();
+  if (s < 60) return `${Math.max(1, Math.floor(s))}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+function withTitle(node, iso) { node.title = iso ? new Date(iso).toLocaleString() : ""; return node; }
+
+function dur(ms) {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.round(ms / 60000)}m`;
+}
+
+function renderCards() {
+  const s = state.stats || {};
+  const bySev = s.by_severity || {};
+  const cards = [
+    ["Open issues", s.open_issues ?? 0, ""],
+    ["Critical", bySev.critical ?? 0, "crit"],
+    ["Warnings", bySev.warning ?? 0, "warn"],
+    ["Targets", s.targets ?? 0, ""],
+    ["Runs / 24h", s.runs_last_24h ?? 0, ""],
+    ["Pages / 24h", s.pages_last_24h ?? 0, ""],
+  ];
+  const box = $("cards");
+  box.replaceChildren(...cards.map(([lbl, num, cls]) => {
+    const c = el("div", "card" + (cls ? " " + cls : ""));
+    c.append(el("div", "num", String(num)), el("div", "lbl", lbl));
+    return c;
+  }));
+}
+
+function fillSelect(sel, items, allLabel) {
+  const cur = sel.value;
+  sel.replaceChildren(el("option", "", allLabel), ...items.map(v => {
+    const o = el("option", "", v); o.value = v; return o;
+  }));
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+function renderIssues() {
+  const tbody = $("issues-table").querySelector("tbody");
+  tbody.replaceChildren();
+  const list = state.issues || [];
+  $("issues-count").textContent = `(${list.length} shown)`;
+  if (!list.length) {
+    const tr = el("tr"); const td = el("td", "empty", "No issues match the filters — the synthetic users found nothing broken. 🎉");
+    td.colSpan = 7; tr.append(td); tbody.append(tr); return;
+  }
+  for (const i of list) {
+    const tr = el("tr", i.status === "resolved" ? "resolved" : "");
+    const tdSev = el("td"); tdSev.append(el("span", `chip ${i.severity}`, i.severity));
+    const tdType = el("td"); tdType.append(el("span", "chip type", i.type));
+    const tdTarget = el("td", "muted", i.target_id);
+    const tdSum = el("td");
+    const sum = el("div", "", i.summary);
+    tdSum.append(sum);
+    if (i.detail) {
+      const d = el("details", "detail");
+      const pre = el("pre", "", i.detail);
+      d.append(el("summary", "muted", "details"), pre);
+      tdSum.append(d);
+    }
+    const link = el("a", "", i.url || ""); link.href = i.url || "#"; link.target = "_blank"; link.rel = "noopener";
+    tdSum.append(el("div", "muted", ""), link);
+    const tdSeen = el("td");
+    tdSeen.append(withTitle(el("div", "", `first ${ago(i.first_seen)}`), i.first_seen),
+                   withTitle(el("div", "muted", `last ${ago(i.last_seen)}`), i.last_seen));
+    const tdOcc = el("td", "muted", String(i.occurrences));
+    const tdAct = el("td");
+    if (i.status === "open") {
+      const b = el("button", "small", "Resolve");
+      b.onclick = async () => { try { await api(`/api/issues/${i.fingerprint}/resolve`, { method: "POST" }); refresh(); } catch (e) { alert(e.message); } };
+      tdAct.append(b);
+    } else {
+      tdAct.append(el("span", "chip ok", "resolved"));
+    }
+    tr.append(tdSev, tdType, tdTarget, tdSum, tdSeen, tdOcc, tdAct);
+    tbody.append(tr);
+  }
+}
+
+function renderTargets() {
+  const tbody = $("targets-table").querySelector("tbody");
+  tbody.replaceChildren();
+  const list = state.targets || [];
+  $("targets-count").textContent = `(${list.length})`;
+  if (!list.length) {
+    const tr = el("tr"); const td = el("td", "empty", "No sites attached yet. Add one above to send your synthetic users to it.");
+    td.colSpan = 7; tr.append(td); tbody.append(tr); return;
+  }
+  for (const t of list) {
+    const tr = el("tr");
+    const tdURL = el("td"); const a = el("a", "", t.start_url); a.href = t.start_url; a.target = "_blank"; a.rel = "noopener"; tdURL.append(a);
+    const tdAct = el("td");
+    const run = el("button", "small", "Run now");
+    run.onclick = async () => { try { await api(`/api/targets/${t.id}/run`, { method: "POST" }); refresh(); } catch (e) { alert(e.message); } };
+    const del = el("button", "small danger", "Remove");
+    del.onclick = async () => {
+      if (!confirm(`Remove target "${t.id}"?`)) return;
+      try { await api(`/api/targets/${t.id}`, { method: "DELETE" }); refresh(); } catch (e) { alert(e.message); }
+    };
+    tdAct.append(run, " ", del);
+    tr.append(
+      el("td", "", t.id),
+      el("td", "", t.name || "—"),
+      tdURL,
+      el("td", "", t.mode || "both"),
+      el("td", "muted", t.interval || "default"),
+      el("td", "muted", (t.personas && t.personas.length ? t.personas.join(", ") : "all built-in")),
+      tdAct,
+    );
+    tbody.append(tr);
+  }
+}
+
+function renderRuns() {
+  const tbody = $("runs-table").querySelector("tbody");
+  tbody.replaceChildren();
+  const list = state.runs || [];
+  $("runs-count").textContent = `(${list.length})`;
+  if (!list.length) {
+    const tr = el("tr"); const td = el("td", "empty", "No runs yet.");
+    td.colSpan = 9; tr.append(td); tbody.append(tr); return;
+  }
+  for (const r of list) {
+    const tr = el("tr");
+    const tdErr = el("td");
+    if (r.error) { tdErr.append(el("span", "chip critical", r.error.slice(0, 60))); tdErr.title = r.error; }
+    else tdErr.append(el("span", "chip ok", "ok"));
+    tr.append(
+      withTitle(el("td", "", ago(r.started_at)), r.started_at),
+      el("td", "", r.target_id),
+      el("td", "muted", r.mode),
+      el("td", "muted", r.persona || "—"),
+      el("td", "", String(r.pages)),
+      el("td", "", String(r.requests)),
+      el("td", "", String(r.new_issues)),
+      el("td", "muted", dur(r.duration)),
+      tdErr,
+    );
+    tbody.append(tr);
+  }
+}
+
+function issueFilters() {
+  const p = new URLSearchParams();
+  const st = $("f-status").value; if (st) p.set("status", st);
+  const sv = $("f-severity").value; if (sv) p.set("severity", sv);
+  const ty = $("f-type").value; if (ty) p.set("type", ty);
+  const tg = $("f-target").value; if (tg) p.set("target", tg);
+  p.set("limit", "100");
+  return p.toString();
+}
+
+async function refresh() {
+  try {
+    const [stats, targets, issues, runs] = await Promise.all([
+      api("/api/stats"),
+      api("/api/targets"),
+      api("/api/issues?" + issueFilters()),
+      api("/api/runs?limit=50"),
+    ]);
+    state.stats = stats; state.targets = targets; state.issues = issues; state.runs = runs;
+    $("dot").classList.remove("down");
+    $("api-state").textContent = "connected";
+    fillSelect($("f-type"), Object.keys((stats.by_type) || {}).sort(), "All types");
+    fillSelect($("f-target"), state.targets.map(t => t.id).sort(), "All targets");
+    renderCards(); renderIssues(); renderTargets(); renderRuns();
+  } catch (e) {
+    $("dot").classList.add("down");
+    $("api-state").textContent = "API unreachable: " + e.message;
+  }
+}
+
+$("add-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const body = {
+    start_url: $("t-url").value,
+    name: $("t-name").value,
+    mode: $("t-mode").value,
+    interval: $("t-interval").value,
+  };
+  try {
+    await api("/api/targets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    $("t-url").value = ""; $("t-name").value = ""; $("t-interval").value = "";
+    refresh();
+  } catch (e) { alert(e.message); }
+});
+
+for (const id of ["f-status", "f-severity", "f-type", "f-target"]) {
+  $(id).addEventListener("change", refresh);
+}
+$("resolve-shown").addEventListener("click", async () => {
+  const open = (state.issues || []).filter(i => i.status === "open");
+  if (!open.length) return;
+  if (!confirm(`Resolve ${open.length} listed issue(s)?`)) return;
+  for (const i of open) {
+    try { await api(`/api/issues/${i.fingerprint}/resolve`, { method: "POST" }); } catch (e) { alert(e.message); break; }
+  }
+  refresh();
+});
+
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 5000);
+</script>
+</body>
+</html>
