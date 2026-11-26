@@ -111,19 +111,23 @@ func newPersonaPool(custom []Persona) *personaPool {
 }
 
 // pick returns the persona a target's next run should use.
-func (p *personaPool) pick(t *Target) Persona {
-	var candidates []string
+// pickN returns up to n distinct personas for one visit (at least one).
+// Distinct names keep each visitor's cookie jar its own.
+func (p *personaPool) pickN(t *Target, n int) []Persona {
+	candidates := p.names
 	if len(t.Personas) > 0 {
 		candidates = t.Personas
-	} else {
-		candidates = p.names
 	}
-	// deterministic-ish rotation: hash target id + a time bucket
-	choice := candidates[rand.Intn(len(candidates))]
-	if pr, ok := p.byName[choice]; ok {
-		return pr
+	n = max(1, min(n, len(candidates)))
+	out := make([]Persona, 0, n)
+	for _, i := range rand.Perm(len(candidates))[:n] {
+		if pr, ok := p.byName[candidates[i]]; ok {
+			out = append(out, pr)
+		} else {
+			out = append(out, p.fallback)
+		}
 	}
-	return p.fallback
+	return out
 }
 
 // jar returns (creating if needed) the cookie jar for a persona+target pair.

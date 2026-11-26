@@ -57,6 +57,8 @@ targets:
     start_url: https://127.0.0.1:6161/
     mode: both                 # explorer | journey | both
     interval: 1m
+    visitors: 2                # users browsing at once per visit (distinct personas,
+                               # shared rate limit; capped at the number of personas)
     max_pages: 15
     max_depth: 3
     insecure_skip_verify: true # demo uses a self-signed certificate

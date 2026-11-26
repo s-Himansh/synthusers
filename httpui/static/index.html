@@ -199,10 +199,16 @@
         <option value="30m">Every 30m</option>
         <option value="1h">Every 1h</option>
       </select>
+      <select id="t-visitors" aria-label="Visitors at once">
+        <option value="1">1 visitor</option>
+        <option value="2">2 at once</option>
+        <option value="3">3 at once</option>
+        <option value="5">5 at once</option>
+      </select>
       <button class="primary" type="submit">Attach site</button>
     </form>
     <div class="tblbox"><table id="targets-table">
-      <thead><tr><th>ID</th><th>Name</th><th>URL</th><th>Mode</th><th>Interval</th><th>Personas</th><th></th></tr></thead>
+      <thead><tr><th>ID</th><th>Name</th><th>URL</th><th>Mode</th><th>Interval</th><th>Visitors</th><th></th></tr></thead>
       <tbody></tbody>
     </table></div>
   </section>
@@ -349,7 +355,7 @@ function renderTargets() {
       tdURL,
       el("td", "", t.mode || "both"),
       el("td", "muted", t.interval || "default"),
-      el("td", "muted", (t.personas && t.personas.length ? t.personas.join(", ") : "all built-in")),
+      el("td", "muted", `${t.visitors || 1} at once · ${t.personas && t.personas.length ? t.personas.join(", ") : "any persona"}`),
       tdAct,
     );
     tbody.append(tr);
@@ -422,10 +428,11 @@ $("add-form").addEventListener("submit", async (ev) => {
     name: $("t-name").value,
     mode: $("t-mode").value,
     interval: $("t-interval").value,
+    visitors: +$("t-visitors").value,
   };
   try {
     await api("/api/targets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    $("t-url").value = ""; $("t-name").value = ""; $("t-interval").value = "";
+    $("t-url").value = ""; $("t-name").value = ""; $("t-interval").value = ""; $("t-visitors").value = "1";
     refresh();
   } catch (e) { alert(e.message); }
 });

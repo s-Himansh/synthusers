@@ -191,6 +191,11 @@ type Target struct {
 	// persona registry, e.g. "chrome-linux", "iphone-safari"). Empty = all.
 	Personas []string `json:"personas,omitempty" yaml:"personas"`
 
+	// Visitors is how many synthetic users browse the site at once on each
+	// visit, each with a different persona and cookie jar (default 1,
+	// capped at the number of personas). They share the site's rate limit.
+	Visitors int `json:"visitors,omitempty" yaml:"visitors"`
+
 	// Headers are sent with every request of this target (auth tokens,
 	// spam filters' allowlisting, etc).
 	Headers map[string]string `json:"headers,omitempty" yaml:"headers"`

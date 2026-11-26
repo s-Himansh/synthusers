@@ -446,11 +446,13 @@ func (e *Engine) worker(ctx context.Context, id int) {
 			e.mu.Unlock()
 
 			runCtx, cancel := context.WithTimeout(ctx, e.cfg.RunTimeout)
-			run := e.runTarget(runCtx, t, name, j.force)
+			runs := e.runTarget(runCtx, t, name, j.force)
 			cancel()
 
-			if err := e.store.SaveRun(context.Background(), &run); err != nil {
-				e.logger.Error("saving run", "err", err)
+			for i := range runs {
+				if err := e.store.SaveRun(context.Background(), &runs[i]); err != nil {
+					e.logger.Error("saving run", "err", err)
+				}
 			}
 
 			e.mu.Lock()
@@ -460,12 +462,31 @@ func (e *Engine) worker(ctx context.Context, id int) {
 	}
 }
 
-// runTarget performs one full visit: explorer crawl and/or journeys, plus
-// JS-error sampling, feeding every finding through the issue pipeline.
-func (e *Engine) runTarget(ctx context.Context, t *Target, workerName string, force bool) Run {
+// runTarget sends the target's visitors (Target.Visitors, distinct
+// personas) to the site at once and returns one Run per visitor.
+func (e *Engine) runTarget(ctx context.Context, t *Target, workerName string, force bool) []Run {
+	personas := e.personas.pickN(t, t.Visitors)
+	runs := make([]Run, len(personas))
+	var wg sync.WaitGroup
+	for i, p := range personas {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Only the first visitor samples pages in Chrome: a crowd should
+			// not multiply browser load.
+			runs[i] = e.runVisit(ctx, t, p, workerName, i == 0)
+		}()
+	}
+	wg.Wait()
+	return runs
+}
+
+// runVisit performs one visitor's full visit: explorer crawl and/or
+// journeys, plus optional JS-error sampling, feeding every finding through
+// the issue pipeline.
+func (e *Engine) runVisit(ctx context.Context, t *Target, persona Persona, workerName string, sampleJS bool) Run {
 	mode := t.ModeOr(ModeBoth)
 	started := e.cfg.Now()
-	persona := e.personas.pick(t)
 	fetcher := e.fetcherFor(t, persona)
 	fetcher.runID = e.live.newRunID(t.ID)
 	e.live.emit(LiveEvent{Kind: LiveRunStart, RunID: fetcher.runID, TargetID: t.ID, Persona: persona.Name, Mode: mode, URL: t.StartURL})
@@ -510,7 +531,7 @@ func (e *Engine) runTarget(ctx context.Context, t *Target, workerName string, fo
 
 	// Sample a few of the visited pages in a real browser for JS errors.
 	newIssues := e.pipeline(ctx, t, fetcher.runID, findings)
-	if e.jsRunner != nil && e.jsRunner.Healthy() && t.JS.Sample > 0 {
+	if sampleJS && e.jsRunner != nil && e.jsRunner.Healthy() && t.JS.Sample > 0 {
 		for _, u := range sampleURLs(summary.Visited, t.JS.Sample) {
 			jsFindings, err := e.jsRunner.CheckURL(ctx, t, u, persona)
 			if err != nil {
@@ -578,6 +599,7 @@ func (e *Engine) pipeline(ctx context.Context, t *Target, runID string, findings
 
 // RunOnce performs a synchronous run of one target now (used by tests and
 // the dashboard's "run now" button).
+// Every visitor's run is saved; the first visitor's run is returned.
 func (e *Engine) RunOnce(ctx context.Context, targetID string) (Run, error) {
 	targets, err := e.store.ListTargets(ctx)
 	if err != nil {
@@ -596,11 +618,13 @@ func (e *Engine) RunOnce(ctx context.Context, targetID string) (Run, error) {
 	if !t.Enabled {
 		return Run{}, fmt.Errorf("target %q is disabled", targetID)
 	}
-	run := e.runTarget(ctx, t, "manual", true)
-	if err := e.store.SaveRun(ctx, &run); err != nil {
-		return run, err
+	runs := e.runTarget(ctx, t, "manual", true)
+	for i := range runs {
+		if err := e.store.SaveRun(ctx, &runs[i]); err != nil {
+			return runs[0], err
+		}
 	}
-	return run, nil
+	return runs[0], nil
 }
 
 // Close releases the store.

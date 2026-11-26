@@ -48,6 +48,7 @@ func Handler(e *synthusers.Engine) http.Handler {
 			MaxPages   int                    `json:"max_pages"`
 			MaxDepth   int                    `json:"max_depth"`
 			JSSample   int                    `json:"js_sample"`
+			Visitors   int                    `json:"visitors"`
 			Assertions []synthusers.Assertion `json:"assertions"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
@@ -71,6 +72,7 @@ func Handler(e *synthusers.Engine) http.Handler {
 			MaxPages:   in.MaxPages,
 			MaxDepth:   in.MaxDepth,
 			Assertions: in.Assertions,
+			Visitors:   in.Visitors,
 			Enabled:    true,
 		}
 		t.JS.Sample = in.JSSample

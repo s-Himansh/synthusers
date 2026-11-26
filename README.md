@@ -120,6 +120,7 @@ targets:
     start_url: https://shop.example.com/
     mode: both            # explorer | journey | both
     interval: 10m
+    visitors: 3           # a crowd: 3 personas browse at once, own cookies each
     insecure_skip_verify: false
     assertions: [ { contains: "Add to cart" } ]
     js: { sample: 3 }
@@ -217,6 +218,10 @@ automatically because all instances share one store.
 - **Human think time** (2–10s per page, per persona) between page actions.
 - **Budgets everywhere**: pages per run, depth, assets per page (25),
   links per page (20), one probe per URL per run (shared probe cache).
+- **Crowds share the budget**: `visitors: N` runs N distinct personas at
+  once, but they draw from the same per-domain token bucket, so a crowd
+  never raises the request rate against the site. Only the first visitor
+  runs browser (JS) checks.
 - **Identity rotation**: six built-in personas (Chrome/Firefox/Safari/Edge/
   iPhone) with their own cookie jars — sessions persist like a returning
   visitor. Custom personas via config.
