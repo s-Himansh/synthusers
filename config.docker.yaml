@@ -1,0 +1,57 @@
+# Dashboard config for docker compose (see docker-compose.yml).
+# Store DSN comes from the SYNTHUSERS_DSN environment variable.
+
+server:
+  addr: :8080
+
+store:
+  backend: postgres
+  dsn: postgres://synthusers:synthusers@postgres:5432/synthusers?sslmode=disable
+
+engine:
+  interval: 2m
+  workers: 8
+  rate_limit: 2
+  timeout: 30s
+  run_timeout: 15m
+
+explorer:
+  max_pages: 15
+  max_depth: 3
+
+checks:
+  slow_ms: 3000
+  ssl_warn_days: 14
+  max_assets: 25
+  max_links: 20
+
+js:
+  enabled: true
+  remote_url: http://chrome:9222
+  timeout: 45s
+  sample_default: 3
+
+targets:
+  # Demo target: deliberately broken site, self-signed certificate.
+  - id: demo-shop
+    name: Demo Shop
+    start_url: https://brokensite:6161/
+    mode: both
+    interval: 1m
+    max_pages: 15
+    insecure_skip_verify: true
+    js:
+      sample: 5
+    assertions:
+      - contains: "Demo Shop"
+    journeys:
+      - name: login-logout
+        steps:
+          - goto: /login
+          - expect: { contains: "Sign in" }
+          - fill: { selector: "input[name=username]", value: "demo" }
+          - fill: { selector: "input[name=password]", value: "hunter2" }
+          - submit: "form[action=/login]"
+          - expect: { contains: "Welcome back" }
+          - click: "a[href=/logout]"
+          - expect: { contains: "Demo Shop" }

@@ -1,0 +1,94 @@
+# synthusersd configuration reference.
+#
+# Quick start against the bundled demo site:
+#   go run ./examples/brokensite -http :6060 -https :6161 &
+#   SYNTHUSERS_DSN="" go run ./cmd/synthusersd -config config.example.yaml
+# then open http://localhost:8080
+
+server:
+  addr: :8080                  # dashboard (UI + JSON API)
+
+store:
+  backend: memory              # memory | postgres
+  dsn: postgres://synthusers:synthusers@localhost:5432/synthusers?sslmode=disable
+                               # used when backend: postgres (env SYNTHUSERS_DSN wins)
+
+engine:
+  interval: 1m                 # default cadence per target (targets can override)
+  workers: 8                   # concurrent target runs
+  rate_limit: 2                # requests per second per target domain (safety valve)
+  timeout: 30s                 # per-request timeout
+  run_timeout: 15m             # wall-clock budget of one run
+  # shard: 0                   # this instance's shard index (env SYNTHUSERS_SHARD)
+  # shards: 1                  # total shards across the fleet (env SYNTHUSERS_SHARDS)
+  disable_delays: false        # true removes human think-time pauses (tests only)
+
+explorer:
+  max_pages: 15                # default page budget of one explorer run
+  max_depth: 3                 # default click distance from the start page
+
+checks:
+  slow_ms: 3000                # pages slower than this become slow_response issues
+  ssl_warn_days: 14            # certificates expiring within this window warn
+  max_assets: 25               # asset probes per page
+  max_links: 20                # link probes per page
+
+js:
+  enabled: true                # load a sample of pages in a real browser
+  remote_url: http://127.0.0.1:9222   # headless-shell sidecar (docker compose provides one)
+  # exec_path: /usr/bin/chromium      # or a local Chrome/Chromium
+  timeout: 45s
+  sample_default: 3            # pages per run JS-checked when target has no js.sample
+
+# Extra visitor identities. The six built-in personas (chrome-windows,
+# chrome-linux, firefox-windows, safari-mac, edge-windows, iphone-safari)
+# are always registered; entries here are added on top.
+personas: []
+#  - name: trusty-old-firefox
+#    user_agent: "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0"
+#    accept_language: "en-GB,en;q=0.8"
+#    think_min: 4s
+#    think_max: 12s
+
+# The sites the synthetic users live on.
+targets:
+  - id: demo-shop
+    name: Demo Shop
+    start_url: https://127.0.0.1:6161/
+    mode: both                 # explorer | journey | both
+    interval: 1m
+    max_pages: 15
+    max_depth: 3
+    insecure_skip_verify: true # demo uses a self-signed certificate
+    js:
+      sample: 15               # JS-check every visited page (demo is small)
+    assertions:                # applied to every HTML page of this target
+      - contains: "Demo Shop"
+    journeys:
+      - name: login-logout
+        steps:
+          - goto: /login
+          - expect: { contains: "Sign in" }
+          - fill: { selector: "input[name=username]", value: "demo" }
+          - fill: { selector: "input[name=password]", value: "hunter2" }
+          - submit: "form[action=/login]"
+          - expect: { contains: "Welcome back" }
+          - click: "a[href=/logout]"
+          - expect: { contains: "Demo Shop" }
+      - name: wrong-password-is-caught
+        steps:
+          - goto: /login
+          - fill: { selector: "input[name=username]", value: "demo" }
+          - fill: { selector: "input[name=password]", value: "letmein" }
+          - submit: "form[action=/login]"
+          - expect: { contains: "Welcome back" }   # fails on purpose -> journey_failed issue
+
+  # Real sites: remove insecure_skip_verify and point at your own domain.
+  # - id: example
+  #   name: Example
+  #   start_url: https://example.com/
+  #   mode: both
+  #   interval: 10m
+  #   max_pages: 30
+  #   js:
+  #     sample: 3
