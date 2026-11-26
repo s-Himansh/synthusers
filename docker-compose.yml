@@ -1,0 +1,64 @@
+# Full stack: dashboard + Postgres store + headless Chrome for JS checks.
+#   docker compose up -d
+#   open http://localhost:8080
+#
+# The bundled demo site (examples/brokensite) runs too, so the dashboard
+# lights up with issues immediately. Remove the brokensite service and the
+# demo target in config.docker.yaml for real use.
+services:
+  synthusersd:
+    build: .
+    restart: unless-stopped
+    environment:
+      SYNTHUSERS_DSN: postgres://synthusers:synthusers@postgres:5432/synthusers?sslmode=disable
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.docker.yaml:/etc/synthusers/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chrome:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: synthusers
+      POSTGRES_PASSWORD: synthusers
+      POSTGRES_DB: synthusers
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synthusers"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Chrome DevTools Protocol endpoint for js checks (chromedp connects here).
+  chrome:
+    image: chromedp/headless-shell:latest
+    restart: unless-stopped
+    command: ["--no-sandbox", "--no-first-run", "--headless", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222"]
+    ports:
+      - "9222:9222"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9222/json/version >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Deliberately broken demo site so the dashboard has something to find.
+  # Remove in production.
+  brokensite:
+    build:
+      context: .
+      dockerfile: Dockerfile.brokensite
+    restart: unless-stopped
+    ports:
+      - "6060:6060"
+      - "6161:6161"
+
+volumes:
+  pgdata:
